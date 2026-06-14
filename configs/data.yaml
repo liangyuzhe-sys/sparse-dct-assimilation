@@ -1,0 +1,73 @@
+# Single source of truth for experimental configuration.
+# Code modules read this file; do NOT hard-code these values elsewhere.
+
+evaluation:
+  start_date: "2023-01-02"     # First Monday of 2023
+  end_date:   "2023-12-25"     # Last Monday of 2023
+  cadence:    "7D"             # Weekly
+  hour_utc:   6                # 06 UTC
+  # Produces 52 dates.
+
+aurora:
+  model_class:     "AuroraPretrained"
+  checkpoint_repo: "microsoft/aurora"
+  checkpoint_name: "aurora-0.25-pretrained.ckpt"
+  grid_shape:      [721, 1440]      # (lat, lon)
+  ic_offsets_h:    [-12, -6]        # two ICs at t-12h and t-6h
+  pred_offset_h:   0                # Aurora outputs t0 (background)
+  pressure_levels:
+    - 50
+    - 100
+    - 150
+    - 200
+    - 250
+    - 300
+    - 400
+    - 500
+    - 600
+    - 700
+    - 850
+    - 925
+    - 1000
+  # Memory-saving flags for 32 GB GPU
+  autocast:  true
+  bf16_mode: true
+  use_lora:  false
+
+variables:
+  surface:     ["2t", "10u", "10v", "msl"]
+  atmospheric: ["t", "u", "v", "q", "z"]
+  static:      ["lsm", "slt", "z"]
+
+  evaluation:
+    - { name: "z500", group: "atmospheric", var: "z", level: 500 }
+    - { name: "z200", group: "atmospheric", var: "z", level: 200 }
+    - { name: "t500", group: "atmospheric", var: "t", level: 500 }
+    - { name: "t850", group: "atmospheric", var: "t", level: 850 }
+    - { name: "msl",  group: "surface",     var: "msl" }
+    - { name: "q700", group: "atmospheric", var: "q", level: 700 }
+
+observations:
+  fraction:    0.003           # ~3100 obs over 721 x 1440
+  noise_rule:  "bg_rms_fraction"
+  noise_param: 0.25            # sigma_obs = 0.25 * background RMS per variable
+  seeds:       [0, 1, 2, 3, 4]
+
+paths:
+  data_root:      "/root/autodl-fs/data/aurora_da_data"
+  era5_static:    "/root/autodl-fs/data/aurora_da_data/era5/static.zarr"
+  era5_ic_dir:    "/root/autodl-fs/data/aurora_da_data/era5/ic"
+  background_dir: "/root/autodl-fs/data/aurora_da_data/background"
+  manifest:       "/root/autodl-fs/data/aurora_da_data/manifest.json"
+
+era5_source:
+  type: "arco"                 # Google ARCO ERA5 on GCS
+
+observations:
+  noise_fractions: [0.005]
+  n_seeds: 3
+
+methods:
+  threedvar:
+    L_km: 500.0
+    cutoff_factor: 4.0
